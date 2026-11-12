@@ -96,7 +96,8 @@ index creation if the one-shot baseline fails.
 
 ## Report and evidence
 
-- [Final PDF](output/pdf/postgres_gist_500m_assignment.pdf)
+- [Concise final PDF](output/pdf/postgres_gist_500m_assignment_concise.pdf)
+- [Detailed evidence PDF](output/pdf/postgres_gist_500m_assignment.pdf)
 - [Editable Excalidraw summary](output/excalidraw/postgres-gist-500m-summary.excalidraw)
 - [Before-GiST transcript](evidence/transcripts/04_baseline-20261112-051316.txt)
 - [After-GiST transcript](evidence/transcripts/06_after_gist-20261112-053044.txt)
