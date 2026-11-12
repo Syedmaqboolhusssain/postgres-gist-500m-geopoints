@@ -55,8 +55,9 @@ compose.yaml          PostgreSQL 17/PostGIS + pgAdmin Docker stack
 scripts/              loader, step runner, status and bootstrap scripts
 sql/                  tutorial queries and measured extensions
 evidence/transcripts/ exact psql/system transcripts from the 500M run
-report/               ReportLab PDF generator
+report/               PDF and Excalidraw generators
 output/pdf/            final 14-page assignment PDF
+output/excalidraw/     editable one-page visual summary
 ```
 
 ## Reproduce
@@ -96,6 +97,7 @@ index creation if the one-shot baseline fails.
 ## Report and evidence
 
 - [Final PDF](output/pdf/postgres_gist_500m_assignment.pdf)
+- [Editable Excalidraw summary](output/excalidraw/postgres-gist-500m-summary.excalidraw)
 - [Before-GiST transcript](evidence/transcripts/04_baseline-20261112-051316.txt)
 - [After-GiST transcript](evidence/transcripts/06_after_gist-20261112-053044.txt)
 - [Verification transcript](evidence/transcripts/07_verify-20261112-053045.txt)
