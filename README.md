@@ -56,7 +56,7 @@ scripts/              loader, step runner, status and bootstrap scripts
 sql/                  tutorial queries and measured extensions
 evidence/transcripts/ exact psql/system transcripts from the 500M run
 report/               PDF and Excalidraw generators
-output/pdf/            final 14-page assignment PDF
+output/pdf/            concise submission and detailed evidence report
 output/excalidraw/     editable one-page visual summary
 ```
 
@@ -86,8 +86,9 @@ index creation if the one-shot baseline fails.
 - The bulk fixture is `UNLOGGED` to avoid WAL duplication for regenerable data.
 - Four loaders use disjoint ID ranges; the sequence and primary key are restored
   before measurements, so the final schema matches the tutorial.
-- Cold passes restart PostgreSQL and clear the Linux page cache; warm passes run
-  the same SQL immediately afterward.
+- Each benchmark phase starts after a PostgreSQL restart and Linux page-cache
+  reset. Queries run sequentially and each repeat follows its first pass, so
+  later first-pass queries may already find pages in cache.
 - Built-in PostgreSQL `POINT` treats longitude/latitude as planar degrees. Use
   PostGIS geography for production geodesic distances.
 - The polygon `COUNT(*)` naturally becomes an Index Only Scan in PostgreSQL 17.
@@ -99,13 +100,19 @@ index creation if the one-shot baseline fails.
 - [Concise final PDF](output/pdf/postgres_gist_500m_assignment_concise.pdf)
 - [Detailed evidence PDF](output/pdf/postgres_gist_500m_assignment.pdf)
 - [Editable Excalidraw summary](output/excalidraw/postgres-gist-500m-summary.excalidraw)
+- [Container startup and load log](evidence/transcripts/bootstrap.log)
+- [Exact 500M row count](evidence/transcripts/03_finalize_load-20261112-051048.txt)
 - [Before-GiST transcript](evidence/transcripts/04_baseline-20261112-051316.txt)
+- [GiST build transcript](evidence/transcripts/05_index-20261112-051626.txt)
 - [After-GiST transcript](evidence/transcripts/06_after_gist-20261112-053044.txt)
+- [Polygon row retrieval transcript](evidence/transcripts/09_polygon_bitmap-20261112-053520.txt)
 - [Verification transcript](evidence/transcripts/07_verify-20261112-053045.txt)
-- [Geohash transcript](evidence/transcripts/08_geohash-20261112-053106.txt)
+- [Geohash boundary test](evidence/transcripts/08_geohash-20261112-053106.txt)
+- [Isolated geohash candidate check](evidence/transcripts/10_geohash_isolated-20261112-053708.txt)
 
-All reported timings come from the committed transcripts rather than copied
-tutorial output.
+The concise PDF contains image excerpts of the recorded output. To regenerate
+it, install `reportlab`, `pypdfium2`, and `Pillow`, then run
+`python report/build_report_concise.py` from the repository root.
 
 ## References
 
