@@ -1,0 +1,238 @@
+Timing is on.
+======================================================================
+ BASELINE -- no spatial index
+======================================================================
+SELECT indexrelid::regclass AS existing_indexes
+FROM pg_index WHERE indrelid = 'locations'::regclass;
+ existing_indexes 
+------------------
+ locations_pkey
+(1 row)
+
+Time: 18.537 ms
+
+--- Q1: bounding box (point <@ box), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=21.358..21820.194 rows=969 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared read=4671907
+   I/O Timings: shared read=75359.200
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=91.220..21806.749 rows=194 loops=5)
+         Filter: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Rows Removed by Filter: 99999806
+         Buffers: shared read=4671907
+         I/O Timings: shared read=75359.200
+ Planning:
+   Buffers: shared hit=54 read=6
+   I/O Timings: shared read=2.026
+ Planning Time: 3.784 ms
+ Execution Time: 21820.542 ms
+(15 rows)
+
+Time: 21828.397 ms (00:21.828)
+--- Q1: bounding box, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=20.447..21576.170 rows=969 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=160 read=4671747
+   I/O Timings: shared read=73332.970
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=93.873..21565.167 rows=194 loops=5)
+         Filter: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Rows Removed by Filter: 99999806
+         Buffers: shared hit=160 read=4671747
+         I/O Timings: shared read=73332.970
+ Planning Time: 0.117 ms
+ Execution Time: 21576.524 ms
+(12 rows)
+
+Time: 21577.009 ms (00:21.577)
+
+--- Q2: radius / circle (point <@ circle), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=9281.388..22121.686 rows=7 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=594 read=4671313
+   I/O Timings: shared read=71093.759
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=8261.145..22110.905 rows=1 loops=5)
+         Filter: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Rows Removed by Filter: 99999999
+         Buffers: shared hit=594 read=4671313
+         I/O Timings: shared read=71093.759
+ Planning Time: 0.433 ms
+ Execution Time: 22121.710 ms
+(12 rows)
+
+Time: 22123.368 ms (00:22.123)
+--- Q2: radius / circle, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=4011.028..21952.281 rows=7 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=665 read=4671242
+   I/O Timings: shared read=70365.727
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=7205.858..21942.285 rows=1 loops=5)
+         Filter: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Rows Removed by Filter: 99999999
+         Buffers: shared hit=665 read=4671242
+         I/O Timings: shared read=70365.727
+ Planning Time: 0.324 ms
+ Execution Time: 21952.302 ms
+(12 rows)
+
+Time: 21953.059 ms (00:21.953)
+
+--- Q3: K-NN nearest neighbour (ORDER BY <-> LIMIT 100), run 1 of 2 ---
+    Without an index this is a full scan plus a Top-N heapsort over 500M
+    rows. Expect minutes, not seconds. This is the most dramatic before/
+    after pair in the whole assignment.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=11012761.18..11012773.16 rows=100 width=50) (actual time=29893.343..29897.189 rows=100 loops=1)
+   Buffers: shared hit=1071 read=4670984
+   I/O Timings: shared read=41756.296
+   ->  Gather Merge  (cost=11012761.18..70879552.67 rows=499995584 width=50) (actual time=29893.341..29897.177 rows=100 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1071 read=4670984
+         I/O Timings: shared read=41756.296
+         ->  Sort  (cost=11011761.12..11324258.36 rows=124998896 width=50) (actual time=29885.918..29885.930 rows=84 loops=5)
+               Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+               Sort Method: top-N heapsort  Memory: 47kB
+               Buffers: shared hit=1071 read=4670984
+               I/O Timings: shared read=41756.296
+               Worker 0:  Sort Method: top-N heapsort  Memory: 43kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 46kB
+               Worker 2:  Sort Method: top-N heapsort  Memory: 48kB
+               Worker 3:  Sort Method: top-N heapsort  Memory: 47kB
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124998896 width=50) (actual time=0.344..19936.519 rows=100000000 loops=5)
+                     Buffers: shared hit=923 read=4670984
+                     I/O Timings: shared read=41756.296
+ Planning:
+   Buffers: shared hit=17 read=3
+   I/O Timings: shared read=0.507
+ Planning Time: 0.943 ms
+ Execution Time: 29897.233 ms
+(25 rows)
+
+Time: 29901.806 ms (00:29.902)
+--- Q3: K-NN, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=11012761.18..11012773.16 rows=100 width=50) (actual time=29885.686..29889.330 rows=100 loops=1)
+   Buffers: shared hit=1196 read=4670859 written=10
+   I/O Timings: shared read=42065.194 write=0.111
+   ->  Gather Merge  (cost=11012761.18..70879552.67 rows=499995584 width=50) (actual time=29885.685..29889.320 rows=100 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1196 read=4670859 written=10
+         I/O Timings: shared read=42065.194 write=0.111
+         ->  Sort  (cost=11011761.12..11324258.36 rows=124998896 width=50) (actual time=29881.415..29881.427 rows=85 loops=5)
+               Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+               Sort Method: top-N heapsort  Memory: 47kB
+               Buffers: shared hit=1196 read=4670859 written=10
+               I/O Timings: shared read=42065.194 write=0.111
+               Worker 0:  Sort Method: top-N heapsort  Memory: 43kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 46kB
+               Worker 2:  Sort Method: top-N heapsort  Memory: 48kB
+               Worker 3:  Sort Method: top-N heapsort  Memory: 47kB
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124998896 width=50) (actual time=0.251..19978.366 rows=100000000 loops=5)
+                     Buffers: shared hit=1048 read=4670859 written=10
+                     I/O Timings: shared read=42065.194 write=0.111
+ Planning Time: 0.303 ms
+ Execution Time: 29889.358 ms
+(22 rows)
+
+Time: 29890.051 ms (00:29.890)
+
+--- Q4: polygon containment (point <@ polygon), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate  (cost=6235706.12..6235706.13 rows=1 width=8) (actual time=21640.873..21644.207 rows=1 loops=1)
+   Buffers: shared hit=1224 read=4670683 written=1
+   I/O Timings: shared read=66848.919 write=0.023
+   ->  Gather  (cost=6235705.70..6235706.11 rows=4 width=8) (actual time=21640.764..21644.199 rows=5 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1224 read=4670683 written=1
+         I/O Timings: shared read=66848.919 write=0.023
+         ->  Partial Aggregate  (cost=6234705.70..6234705.71 rows=1 width=8) (actual time=21635.813..21635.814 rows=1 loops=5)
+               Buffers: shared hit=1224 read=4670683 written=1
+               I/O Timings: shared read=66848.919 write=0.023
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=0) (actual time=1865.912..21635.771 rows=15 loops=5)
+                     Filter: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+                     Rows Removed by Filter: 99999985
+                     Buffers: shared hit=1224 read=4670683 written=1
+                     I/O Timings: shared read=66848.919 write=0.023
+ Planning:
+   Buffers: shared hit=5 read=1
+   I/O Timings: shared read=0.262
+ Planning Time: 0.476 ms
+ Execution Time: 21644.234 ms
+(21 rows)
+
+Time: 21646.434 ms (00:21.646)
+--- Q4: polygon containment, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate  (cost=6235706.12..6235706.13 rows=1 width=8) (actual time=21385.944..21391.477 rows=1 loops=1)
+   Buffers: shared hit=1385 read=4670522
+   I/O Timings: shared read=66186.241
+   ->  Gather  (cost=6235705.70..6235706.11 rows=4 width=8) (actual time=21385.753..21391.467 rows=5 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1385 read=4670522
+         I/O Timings: shared read=66186.241
+         ->  Partial Aggregate  (cost=6234705.70..6234705.71 rows=1 width=8) (actual time=21380.502..21380.503 rows=1 loops=5)
+               Buffers: shared hit=1385 read=4670522
+               I/O Timings: shared read=66186.241
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=0) (actual time=1261.010..21380.456 rows=15 loops=5)
+                     Filter: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+                     Rows Removed by Filter: 99999985
+                     Buffers: shared hit=1385 read=4670522
+                     I/O Timings: shared read=66186.241
+ Planning Time: 0.201 ms
+ Execution Time: 21391.509 ms
+(18 rows)
+
+Time: 21392.121 ms (00:21.392)

@@ -1,0 +1,71 @@
+Timing is on.
+SELECT count(*) AS total_rows FROM locations;
+ total_rows 
+------------
+  500000000
+(1 row)
+
+Time: 30352.622 ms (00:30.353)
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.184 ms
+ALTER TABLE locations ADD CONSTRAINT locations_pkey PRIMARY KEY (location_id);
+ALTER TABLE
+Time: 105626.210 ms (01:45.626)
+CREATE SEQUENCE IF NOT EXISTS locations_location_id_seq AS bigint OWNED BY locations.location_id;
+CREATE SEQUENCE
+Time: 4.208 ms
+ALTER TABLE locations ALTER COLUMN location_id SET DEFAULT nextval('locations_location_id_seq');
+ALTER TABLE
+Time: 4.179 ms
+SELECT setval('locations_location_id_seq', (SELECT max(location_id) FROM locations));
+  setval   
+-----------
+ 500000000
+(1 row)
+
+Time: 3.942 ms
+ANALYZE locations;
+ANALYZE
+Time: 1391.573 ms (00:01.392)
+
+--- Table shape (screenshot this: it is the 500M proof) ---
+                              Unlogged table "public.locations"
+   Column    |  Type  | Collation | Nullable |                    Default                     
+-------------+--------+-----------+----------+------------------------------------------------
+ location_id | bigint |           | not null | nextval('locations_location_id_seq'::regclass)
+ name        | text   |           |          | 
+ geolocation | point  |           |          | 
+Indexes:
+    "locations_pkey" PRIMARY KEY, btree (location_id)
+
+SELECT
+  pg_size_pretty(pg_relation_size('locations'))        AS table_only,
+  pg_size_pretty(pg_indexes_size('locations'))         AS indexes_only,
+  pg_size_pretty(pg_total_relation_size('locations'))  AS total_with_indexes;
+ table_only | indexes_only | total_with_indexes 
+------------+--------------+--------------------
+ 36 GB      | 10 GB        | 46 GB
+(1 row)
+
+Time: 1.247 ms
+SELECT reltuples::bigint AS planner_row_estimate,
+       relpages          AS heap_pages
+FROM pg_class WHERE relname = 'locations';
+ planner_row_estimate | heap_pages 
+----------------------+------------
+            499995584 |    4671907
+(1 row)
+
+Time: 0.178 ms
+SELECT * FROM locations ORDER BY location_id LIMIT 5;
+ location_id |    name    |               geolocation               
+-------------+------------+-----------------------------------------
+           1 | Location_1 | (175.62624334190883,41.219804650980365)
+           2 | Location_2 | (57.63539171874365,-83.34657146470545)
+           3 | Location_3 | (-129.0020954353671,12.106949416666978)
+           4 | Location_4 | (1.771937660604607,46.93256625139557)
+           5 | Location_5 | (16.851338402821767,61.98204090735868)
+(5 rows)
+
+Time: 1.038 ms

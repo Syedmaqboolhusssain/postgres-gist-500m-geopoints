@@ -1,0 +1,109 @@
+name: week3-gist
+
+# Docker Compose stack for the assignment. Image names stay fully qualified so
+# the exact registry is explicit in the submitted configuration.
+
+services:
+  postgres:
+    image: docker.io/postgis/postgis:17-3.5   # fall back to 17-3.4 if this tag 404s
+    container_name: week3-postgres
+    restart: unless-stopped
+
+    # Docker gives a container 64 MB of /dev/shm by default. Parallel query
+    # workers and a large shared_buffers both need more than that, and the failure
+    # mode is a confusing "could not resize shared memory segment" mid-query.
+    shm_size: 2gb
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: geo
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+
+    # DB_BIND controls who can reach Postgres, and Terraform sets it in .env:
+    #   127.0.0.1  (default) loopback only -- reach it over an SSH tunnel
+    #   0.0.0.0    listening on the public IP, when expose_db_ports = true
+    #
+    # Loopback is the default for a reason. A Hetzner server has a public IP,
+    # and an internet-reachable Postgres is found by scanners within hours. If
+    # you do expose it, restrict allowed_db_cidrs to your own address.
+    ports:
+      - "${DB_BIND:-127.0.0.1}:5432:5432"
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/sql:ro
+      - ./transcripts:/transcripts
+
+    # Tuned for an 8 vCPU / 16 GB VM. Drop shared_buffers/maintenance_work_mem
+    # proportionally if you run on something smaller.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=10GB
+      - -c
+      - work_mem=128MB
+      - -c
+      - maintenance_work_mem=4GB
+      - -c
+      - max_worker_processes=8
+      - -c
+      - max_parallel_workers=8
+      - -c
+      - max_parallel_workers_per_gather=4
+      - -c
+      - max_parallel_maintenance_workers=4
+      # Bulk load settings: fewer, larger checkpoints.
+      - -c
+      - max_wal_size=16GB
+      - -c
+      - min_wal_size=2GB
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - wal_compression=on
+      # NVMe, not spinning rust.
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      # track_io_timing is what makes EXPLAIN (ANALYZE, BUFFERS) print actual
+      # read time, which is how you separate "indexing helped" from "it was cached".
+      - -c
+      - track_io_timing=on
+      - -c
+      - default_statistics_target=200
+      # JIT adds multi-hundred-ms compile noise to exactly the queries being timed.
+      - -c
+      - jit=off
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: docker.io/dpage/pgadmin4:latest
+    container_name: week3-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:5050:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  pgadmin:

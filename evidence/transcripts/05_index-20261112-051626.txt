@@ -1,0 +1,25 @@
+Timing is on.
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.659 ms
+CREATE INDEX idx_locations_gist ON locations USING gist (geolocation);
+CREATE INDEX
+Time: 850698.098 ms (14:10.698)
+ANALYZE locations;
+ANALYZE
+Time: 1522.773 ms (00:01.523)
+
+--- Index built. Sizes: ---
+SELECT
+  indexrelid::regclass AS index_name,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_index
+WHERE indrelid = 'locations'::regclass
+ORDER BY pg_relation_size(indexrelid) DESC;
+     index_name     | index_size 
+--------------------+------------
+ idx_locations_gist | 31 GB
+ locations_pkey     | 10 GB
+(2 rows)
+
+Time: 1.382 ms

@@ -1,0 +1,56 @@
+Timing is on.
+--- Polygon row retrieval: cold run ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+WHERE geolocation <@ polygon
+  '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=2.940..13.486 rows=77 loops=1)
+   Recheck Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+   Heap Blocks: exact=77
+   Buffers: shared read=86
+   I/O Timings: shared read=3.792
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=2.552..2.553 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Buffers: shared read=9
+         I/O Timings: shared read=2.459
+ Planning:
+   Buffers: shared hit=101 read=7
+   I/O Timings: shared read=1.638
+ Planning Time: 3.358 ms
+ Execution Time: 13.597 ms
+(14 rows)
+
+Time: 21.488 ms
+--- Polygon row retrieval: warm run ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+WHERE geolocation <@ polygon
+  '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.072..0.129 rows=77 loops=1)
+   Recheck Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+   Heap Blocks: exact=77
+   Buffers: shared hit=86
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.062..0.062 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Buffers: shared hit=9
+ Planning Time: 0.038 ms
+ Execution Time: 0.151 ms
+(9 rows)
+
+Time: 0.365 ms
+SELECT count(*) AS polygon_rows
+FROM locations
+WHERE geolocation <@ polygon
+  '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+ polygon_rows 
+--------------
+           77
+(1 row)
+
+Time: 6.547 ms

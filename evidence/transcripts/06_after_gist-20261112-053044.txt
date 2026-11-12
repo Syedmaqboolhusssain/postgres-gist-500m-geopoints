@@ -1,0 +1,198 @@
+Timing is on.
+======================================================================
+ AFTER GiST
+======================================================================
+
+--- Q1: bounding box (point <@ box), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=6.873..63.594 rows=969 loops=1)
+   Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+   Heap Blocks: exact=969
+   Buffers: shared read=989
+   I/O Timings: shared read=25.601
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=6.117..6.117 rows=969 loops=1)
+         Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Buffers: shared read=20
+         I/O Timings: shared read=5.488
+ Planning:
+   Buffers: shared hit=102 read=6 dirtied=1
+   I/O Timings: shared read=2.072
+ Planning Time: 6.376 ms
+ Execution Time: 63.938 ms
+(14 rows)
+
+Time: 76.276 ms
+--- Q1: bounding box, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.425..1.149 rows=969 loops=1)
+   Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+   Heap Blocks: exact=969
+   Buffers: shared hit=989
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.266..0.266 rows=969 loops=1)
+         Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Buffers: shared hit=20
+ Planning Time: 0.063 ms
+ Execution Time: 1.263 ms
+(9 rows)
+
+Time: 1.526 ms
+
+--- Q2: radius / circle (point <@ circle), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.074..0.080 rows=7 loops=1)
+   Recheck Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+   Heap Blocks: exact=7
+   Buffers: shared hit=16
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.067..0.068 rows=7 loops=1)
+         Index Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Buffers: shared hit=9
+ Planning:
+   Buffers: shared hit=2 read=1
+   I/O Timings: shared read=0.252
+ Planning Time: 0.332 ms
+ Execution Time: 0.093 ms
+(12 rows)
+
+Time: 1.344 ms
+--- Q2: radius / circle, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.071..0.076 rows=7 loops=1)
+   Recheck Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+   Heap Blocks: exact=7
+   Buffers: shared hit=16
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.066..0.066 rows=7 loops=1)
+         Index Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Buffers: shared hit=9
+ Planning Time: 0.046 ms
+ Execution Time: 0.086 ms
+(9 rows)
+
+Time: 0.295 ms
+
+--- Q3: K-NN nearest neighbour (ORDER BY <-> LIMIT 100), run 1 of 2 ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.55..97.00 rows=100 width=50) (actual time=0.076..0.292 rows=100 loops=1)
+   Buffers: shared hit=109
+   ->  Index Scan using idx_locations_gist on locations  (cost=0.55..482221671.75 rows=500001120 width=50) (actual time=0.075..0.277 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=109
+ Planning:
+   Buffers: shared hit=22 read=1
+   I/O Timings: shared read=0.265
+ Planning Time: 0.370 ms
+ Execution Time: 0.321 ms
+(10 rows)
+
+Time: 2.965 ms
+--- Q3: K-NN, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.55..97.00 rows=100 width=50) (actual time=0.077..0.264 rows=100 loops=1)
+   Buffers: shared hit=109
+   ->  Index Scan using idx_locations_gist on locations  (cost=0.55..482221671.75 rows=500001120 width=50) (actual time=0.076..0.250 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=109
+ Planning Time: 0.045 ms
+ Execution Time: 0.295 ms
+(7 rows)
+
+Time: 0.516 ms
+
+--- Q4: polygon containment (point <@ polygon), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=420200.47..420200.48 rows=1 width=8) (actual time=3.781..3.782 rows=1 loops=1)
+   Buffers: shared hit=70 read=14
+   I/O Timings: shared read=3.551
+   ->  Index Only Scan using idx_locations_gist on locations  (cost=0.55..418950.47 rows=500001 width=0) (actual time=0.617..3.769 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Heap Fetches: 60
+         Buffers: shared hit=70 read=14
+         I/O Timings: shared read=3.551
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.056 ms
+ Execution Time: 3.798 ms
+(12 rows)
+
+Time: 4.390 ms
+--- Q4: polygon containment, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=420200.47..420200.48 rows=1 width=8) (actual time=0.141..0.143 rows=1 loops=1)
+   Buffers: shared hit=84
+   ->  Index Only Scan using idx_locations_gist on locations  (cost=0.55..418950.47 rows=500001 width=0) (actual time=0.050..0.133 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Heap Fetches: 60
+         Buffers: shared hit=84
+ Planning Time: 0.041 ms
+ Execution Time: 0.181 ms
+(8 rows)
+
+Time: 0.399 ms
+
+--- The actual answers, not just the plans ---
+SELECT count(*) AS rows_in_nyc_box
+FROM locations WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+ rows_in_nyc_box 
+-----------------
+             969
+(1 row)
+
+Time: 4.092 ms
+SELECT count(*) AS rows_in_circle
+FROM locations WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+ rows_in_circle 
+----------------
+              7
+(1 row)
+
+Time: 0.261 ms
+SELECT count(*) AS rows_in_polygon
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+ rows_in_polygon 
+-----------------
+              77
+(1 row)
+
+Time: 0.333 ms

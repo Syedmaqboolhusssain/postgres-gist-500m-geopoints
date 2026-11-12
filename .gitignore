@@ -1,0 +1,30 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# Runtime data and temporary renders
+/transcripts/
+/tmp/
+__pycache__/
+*.pyc
+
+# The submitted repository is Docker-first. The upstream Terraform/Podman
+# automation is retained locally for reference but is not part of this result.
+/terraform/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# LaTeX build files, if the report is rebuilt with another toolchain
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.out
+report/*.synctex.gz
+report/*.toc
+report/*.xdv

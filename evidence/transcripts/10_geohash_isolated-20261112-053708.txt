@@ -1,0 +1,65 @@
+Timing is on.
+--- Geohash-only prefix candidates, then exact re-check ---
+EXPLAIN (ANALYZE, BUFFERS)
+WITH candidates AS MATERIALIZED (
+  SELECT location_id, geolocation
+  FROM locations_gh
+  WHERE gh LIKE 'dr%'
+)
+SELECT count(*)
+FROM candidates
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=44566.33..44566.34 rows=1 width=8) (actual time=933.635..933.637 rows=1 loops=1)
+   Buffers: shared read=46695
+   I/O Timings: shared read=436.068
+   CTE candidates
+     ->  Bitmap Heap Scan on locations_gh  (cost=550.63..44453.82 rows=5000 width=24) (actual time=23.013..916.604 rows=48768 loops=1)
+           Filter: (gh ~~ 'dr%'::text)
+           Heap Blocks: exact=46557
+           Buffers: shared read=46695
+           I/O Timings: shared read=436.068
+           ->  Bitmap Index Scan on idx_gh_btree  (cost=0.00..549.38 rows=42121 width=0) (actual time=16.475..16.476 rows=48768 loops=1)
+                 Index Cond: ((gh >= 'dr'::text) AND (gh < 'ds'::text))
+                 Buffers: shared read=138
+                 I/O Timings: shared read=4.286
+   ->  CTE Scan on candidates  (cost=0.00..112.50 rows=5 width=0) (actual time=50.021..933.530 rows=108 loops=1)
+         Filter: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Rows Removed by Filter: 48660
+         Buffers: shared read=46695
+         I/O Timings: shared read=436.068
+ Planning:
+   Buffers: shared hit=103 read=11
+   I/O Timings: shared read=3.552
+ Planning Time: 6.255 ms
+ Execution Time: 934.378 ms
+(23 rows)
+
+Time: 946.785 ms
+--- Geohash quality metrics ---
+WITH counts AS (
+  SELECT
+    count(*) FILTER (WHERE gh LIKE 'dr%') AS candidates,
+    count(*) FILTER (
+      WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))'
+    ) AS true_rows,
+    count(*) FILTER (
+      WHERE gh LIKE 'dr%'
+        AND geolocation <@ box '((-74.1,40.6),(-73.7,40.9))'
+    ) AS true_from_candidates
+  FROM locations_gh
+)
+SELECT candidates,
+       true_rows,
+       candidates - true_from_candidates AS false_positives,
+       round(100.0 * true_from_candidates / candidates, 3) AS precision_pct,
+       round(100.0 * true_from_candidates / true_rows, 3) AS recall_pct,
+       round(candidates::numeric / true_rows, 1) AS overfetch_factor
+FROM counts;
+ candidates | true_rows | false_positives | precision_pct | recall_pct | overfetch_factor 
+------------+-----------+-----------------+---------------+------------+------------------
+      48768 |       108 |           48660 |         0.221 |    100.000 |            451.6
+(1 row)
+
+Time: 2897.598 ms (00:02.898)

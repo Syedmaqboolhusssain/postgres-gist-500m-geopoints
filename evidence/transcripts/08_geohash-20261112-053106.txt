@@ -1,0 +1,306 @@
+Timing is on.
+DROP TABLE IF EXISTS locations_gh;
+psql:/sql/08_geohash.sql:19: NOTICE:  table "locations_gh" does not exist, skipping
+DROP TABLE
+Time: 0.916 ms
+CREATE UNLOGGED TABLE locations_gh (
+    location_id  BIGINT,
+    name         TEXT,
+    geolocation  POINT,
+    gh           TEXT COLLATE "C"       -- precision 7 ~= 153 m x 153 m cells
+);
+CREATE TABLE
+Time: 22.353 ms
+INSERT INTO locations_gh (location_id, name, geolocation, gh)
+SELECT location_id,
+       name,
+       geolocation,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(geolocation[0], geolocation[1]), 4326), 7)
+FROM locations
+WHERE location_id <= 50000000;
+INSERT 0 50000000
+Time: 57091.457 ms (00:57.091)
+SELECT count(*) AS subset_rows FROM locations_gh;
+ subset_rows 
+-------------
+    50000000
+(1 row)
+
+Time: 977.081 ms
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.111 ms
+CREATE INDEX idx_gh_btree ON locations_gh USING btree (gh);
+CREATE INDEX
+Time: 10896.036 ms (00:10.896)
+CREATE INDEX idx_gh_gist  ON locations_gh USING gist  (geolocation);
+CREATE INDEX
+Time: 69838.430 ms (01:09.838)
+ANALYZE locations_gh;
+ANALYZE
+Time: 508.395 ms
+
+--- Index sizes: the B-tree over a 7-char string vs the GiST over points ---
+SELECT indexrelid::regclass AS index_name,
+       pg_size_pretty(pg_relation_size(indexrelid)) AS size
+FROM pg_index WHERE indrelid = 'locations_gh'::regclass
+ORDER BY pg_relation_size(indexrelid) DESC;
+  index_name  |  size   
+--------------+---------
+ idx_gh_gist  | 3181 MB
+ idx_gh_btree | 1071 MB
+(2 rows)
+
+Time: 3.952 ms
+
+======================================================================
+ 1. The NYC box in geohash terms
+======================================================================
+Geohashes of the box corners at each precision. They agree on the first
+few characters and then diverge -- that divergence point is the finest
+single prefix that can cover the whole box.
+SELECT p AS precision,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(-74.1, 40.6), 4326), p) AS sw_corner,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.7, 40.9), 4326), p) AS ne_corner
+FROM generate_series(1, 7) AS p;
+ precision | sw_corner | ne_corner 
+-----------+-----------+-----------
+         1 | d         | d
+         2 | dr        | dr
+         3 | dr5       | dr7
+         4 | dr5q      | dr78
+         5 | dr5qc     | dr78d
+         6 | dr5qcz    | dr78dv
+         7 | dr5qcz4   | dr78dvt
+(7 rows)
+
+Time: 1.403 ms
+WITH c AS (
+  SELECT ST_GeoHash(ST_SetSRID(ST_MakePoint(-74.1, 40.6), 4326), 7) AS a,
+         ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.7, 40.9), 4326), 7) AS b
+)
+SELECT coalesce(max(left(a, i)) FILTER (WHERE left(a, i) = left(b, i)), '') || '%' AS box_pat
+FROM c, generate_series(1, 7) AS i 
+Time: 2.190 ms
+
+Covering prefix pattern for the box:
+'dr%'
+
+======================================================================
+ 2. "How many points are in the NYC box?" -- geohash vs GiST
+======================================================================
+
+--- (a) Geohash B-tree prefix scan: candidates only ---
+    This is what a geohash lookup actually returns. It is a range scan
+    over one contiguous slice of the B-tree -- very cheap per row -- but
+    the rows are the cell, not the box.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh WHERE gh LIKE 'dr%';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=44466.32..44466.33 rows=1 width=8) (actual time=198.667..198.668 rows=1 loops=1)
+   Buffers: shared hit=33053 read=13642 written=5300
+   I/O Timings: shared read=36.512 write=38.198
+   ->  Bitmap Heap Scan on locations_gh  (cost=550.63..44453.82 rows=5000 width=0) (actual time=16.206..195.395 rows=48768 loops=1)
+         Filter: (gh ~~ 'dr%'::text)
+         Heap Blocks: exact=46557
+         Buffers: shared hit=33053 read=13642 written=5300
+         I/O Timings: shared read=36.512 write=38.198
+         ->  Bitmap Index Scan on idx_gh_btree  (cost=0.00..549.38 rows=42121 width=0) (actual time=8.690..8.691 rows=48768 loops=1)
+               Index Cond: ((gh >= 'dr'::text) AND (gh < 'ds'::text))
+               Buffers: shared read=138
+               I/O Timings: shared read=3.289
+ Planning:
+   Buffers: shared hit=27 read=5
+   I/O Timings: shared read=1.239
+ Planning Time: 1.436 ms
+ Execution Time: 198.685 ms
+(17 rows)
+
+Time: 200.736 ms
+
+--- (b) Geohash prefix scan + the re-check the application must do ---
+    Real geohash systems filter the candidates afterwards. The gap between
+    (a) and (b) is wasted work: rows read from disk only to be discarded.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh
+WHERE gh LIKE 'dr%'
+  AND geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=1420.64..1420.65 rows=1 width=8) (actual time=4.948..4.949 rows=1 loops=1)
+   Buffers: shared hit=246 read=8
+   I/O Timings: shared read=0.028
+   ->  Bitmap Heap Scan on locations_gh  (cost=1373.84..1420.63 rows=5 width=0) (actual time=4.796..4.941 rows=108 loops=1)
+         Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Filter: (gh ~~ 'dr%'::text)
+         Heap Blocks: exact=108
+         Buffers: shared hit=246 read=8
+         I/O Timings: shared read=0.028
+         ->  BitmapAnd  (cost=1373.84..1373.84 rows=42 width=0) (actual time=4.704..4.704 rows=0 loops=1)
+               Buffers: shared hit=138 read=8
+               I/O Timings: shared read=0.028
+               ->  Bitmap Index Scan on idx_gh_btree  (cost=0.00..549.38 rows=42121 width=0) (actual time=3.563..3.563 rows=48768 loops=1)
+                     Index Cond: ((gh >= 'dr'::text) AND (gh < 'ds'::text))
+                     Buffers: shared hit=138
+               ->  Bitmap Index Scan on idx_gh_gist  (cost=0.00..824.21 rows=49999 width=0) (actual time=0.066..0.066 rows=108 loops=1)
+                     Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+                     Buffers: shared read=8
+                     I/O Timings: shared read=0.028
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.107 ms
+ Execution Time: 4.971 ms
+(23 rows)
+
+Time: 5.729 ms
+
+--- (c) GiST: exact, in one operator ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=52586.38..52586.39 rows=1 width=8) (actual time=0.133..0.134 rows=1 loops=1)
+   Buffers: shared hit=116
+   ->  Bitmap Heap Scan on locations_gh  (cost=836.71..52461.38 rows=49999 width=0) (actual time=0.036..0.128 rows=108 loops=1)
+         Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Heap Blocks: exact=108
+         Buffers: shared hit=116
+         ->  Bitmap Index Scan on idx_gh_gist  (cost=0.00..824.21 rows=49999 width=0) (actual time=0.026..0.026 rows=108 loops=1)
+               Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+               Buffers: shared hit=8
+ Planning Time: 0.030 ms
+ Execution Time: 0.148 ms
+(11 rows)
+
+Time: 0.390 ms
+
+--- Precision and recall of the geohash approach ---
+SELECT
+  (SELECT count(*) FROM locations_gh WHERE gh LIKE 'dr%')            AS candidates_returned,
+  (SELECT count(*) FROM locations_gh
+     WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))')              AS true_answer,
+  (SELECT count(*) FROM locations_gh
+     WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))'
+       AND gh NOT LIKE 'dr%')                                       AS missed_by_geohash;
+ candidates_returned | true_answer | missed_by_geohash 
+---------------------+-------------+-------------------
+               48768 |         108 |                 0
+(1 row)
+
+Time: 56.742 ms
+
+======================================================================
+ 3. Two points 100 m apart can have nothing in common
+======================================================================
+A geohash cell is a grid square, so proximity in space does not imply a
+shared prefix -- a point just west of a cell edge and one just east of it
+may diverge at the very first character. 1000 random pairs, each exactly
+one pair 100 m apart, sampled over the NYC area:
+WITH a AS (
+  SELECT ST_SetSRID(ST_MakePoint(-74.0 + random()*0.5, 40.6 + random()*0.4), 4326) AS p
+  FROM generate_series(1, 1000)
+), pairs AS (
+  SELECT p,
+         ST_SetSRID(ST_MakePoint(ST_X(p) + 0.0012, ST_Y(p)), 4326) AS q  -- ~100 m east
+  FROM a
+), gh AS (
+  -- The geography cast is what makes "100 m" a real number. In the built-in
+  -- point type 0.0012 degrees of longitude is not a distance at all; it is
+  -- ~101 m at New York's latitude and ~133 m at the equator.
+  SELECT ST_Distance(p::geography, q::geography) AS metres,
+         ST_GeoHash(p, 7) AS gp, ST_GeoHash(q, 7) AS gq
+  FROM pairs
+)
+SELECT count(*)                                                   AS pairs_tested,
+       round(avg(metres)::numeric, 1)                             AS avg_metres_apart,
+       count(*) FILTER (WHERE gp <> gq)                           AS in_different_cells,
+       count(*) FILTER (WHERE left(gp,5) <> left(gq,5))           AS differ_by_char_5,
+       count(*) FILTER (WHERE left(gp,3) <> left(gq,3))           AS differ_by_char_3
+FROM gh;
+ pairs_tested | avg_metres_apart | in_different_cells | differ_by_char_5 | differ_by_char_3 
+--------------+------------------+--------------------+------------------+------------------
+         1000 |            101.3 |                877 |               32 |                0
+(1 row)
+
+Time: 55.233 ms
+
+This is why a correct geohash "nearby" search must query the cell PLUS its
+eight neighbours and then re-check distances -- nine range scans and a
+post-filter to answer what GiST answers with one operator. GiST's bounding
+boxes overlap and adapt to the data, so it has no equivalent of an edge.
+
+======================================================================
+ 4. "100 nearest points to Times Square"
+======================================================================
+
+--- (a) GiST: one ordered index scan, stops after 100 rows ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, geolocation
+FROM locations_gh
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                   QUERY PLAN                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..4.45 rows=100 width=32) (actual time=0.050..0.238 rows=100 loops=1)
+   Buffers: shared hit=108
+   ->  Index Scan using idx_gh_gist on locations_gh  (cost=0.42..2013802.16 rows=49998952 width=32) (actual time=0.049..0.231 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=108
+ Planning:
+   Buffers: shared hit=27 read=1
+   I/O Timings: shared read=0.003
+ Planning Time: 0.092 ms
+ Execution Time: 0.255 ms
+(10 rows)
+
+Time: 1.843 ms
+SELECT ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.9855, 40.7580), 4326), 5) || '%' AS knn_pat 
+Time: 0.152 ms
+
+Times Square precision-5 cell pattern:
+'dr5ru%'
+
+--- (b) Geohash: scan a cell, then sort what you found ---
+    The sort is a real Sort node over every row in the cell. And the
+    result is only correct if the 100th nearest point is inside this cell;
+    otherwise the query silently returns neighbours that are not the
+    nearest. There is no "stop when you have K" -- geohash has no ordering
+    by distance, only by cell.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, geolocation
+FROM locations_gh
+WHERE gh LIKE 'dr5ru%'
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=206.38..206.63 rows=100 width=32) (actual time=0.018..0.019 rows=2 loops=1)
+   Buffers: shared hit=6
+   ->  Sort  (cost=206.38..218.88 rows=5000 width=32) (actual time=0.018..0.018 rows=2 loops=1)
+         Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=6
+         ->  Index Scan using idx_gh_btree on locations_gh  (cost=0.56..15.29 rows=5000 width=32) (actual time=0.013..0.015 rows=2 loops=1)
+               Index Cond: ((gh >= 'dr5ru'::text) AND (gh < 'dr5rv'::text))
+               Filter: (gh ~~ 'dr5ru%'::text)
+               Buffers: shared hit=6
+ Planning Time: 0.074 ms
+ Execution Time: 0.027 ms
+(12 rows)
+
+Time: 0.253 ms
+
+--- How many rows are even in that cell? ---
+    If this is below 100, the query above is wrong and the application
+    has to widen the prefix and try again -- the retry loop that every
+    geohash-based nearby-search implementation ends up carrying.
+SELECT count(*) AS rows_in_precision5_cell
+FROM locations_gh WHERE gh LIKE 'dr5ru%';
+ rows_in_precision5_cell 
+-------------------------
+                       2
+(1 row)
+
+Time: 0.247 ms

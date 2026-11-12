@@ -1,0 +1,1122 @@
+[2026-11-12T05:08:19] bootstrap starting: TOTAL_POINTS=500000000 AUTO_PIPELINE=full
+/dev/sda1       301G  2.8G  286G   1% /
+[2026-11-12T05:08:19] ===== STAGE: starting containers =====
+ Container week3-postgres  Running
+ Container week3-pgadmin  Running
+ Container week3-postgres  Waiting
+ Container week3-postgres  Healthy
+[2026-11-12T05:08:20] waiting for postgres to accept TCP connections
+[2026-11-12T05:08:24] postgres ready
+[2026-11-12T05:08:24] ===== STAGE: creating schema =====
+Timing is on.
+CREATE EXTENSION IF NOT EXISTS postgis;
+psql:/sql/01_schema.sql:31: NOTICE:  extension "postgis" already exists, skipping
+CREATE EXTENSION
+Time: 0.691 ms
+CREATE EXTENSION IF NOT EXISTS pg_prewarm;
+CREATE EXTENSION
+Time: 10.542 ms
+DROP TABLE IF EXISTS locations;
+psql:/sql/01_schema.sql:34: NOTICE:  table "locations" does not exist, skipping
+DROP TABLE
+Time: 0.378 ms
+CREATE UNLOGGED TABLE locations (
+    location_id  BIGINT NOT NULL,
+    name         TEXT,
+    geolocation  POINT        -- (x, y) = (longitude, latitude), per the tutorial
+);
+CREATE TABLE
+Time: 9.635 ms
+Schema created. Next: scripts/run-load.sh
+
+Saved: transcripts/01_schema-20261112-050824.txt
+[2026-11-12T05:08:24] ===== STAGE: smoke test (5M points) =====
+Loading 5000000 rows: 2 workers x 0 batches of 10000000
+Started 05:08:24
+
+[w1] 05:08:26  rows           1..2500000         2s
+[w2] 05:08:26  rows     2500001..5000000         2s
+
+Finished 05:08:26 -- total 0 minutes
+Next: docker exec -it week3-postgres psql -U postgres -d geo -f /sql/03_finalize_load.sql
+
+To watch progress from another shell (count(*) on a growing 500M table is
+itself a minutes-long seq scan, so watch the file size instead):
+  watch -n30 "docker exec week3-postgres psql -U postgres -d geo -tAc \"SELECT pg_size_pretty(pg_relation_size('locations'))\""
+Timing is on.
+CREATE EXTENSION IF NOT EXISTS postgis;
+psql:/sql/01_schema.sql:31: NOTICE:  extension "postgis" already exists, skipping
+CREATE EXTENSION
+Time: 0.293 ms
+CREATE EXTENSION IF NOT EXISTS pg_prewarm;
+psql:/sql/01_schema.sql:32: NOTICE:  extension "pg_prewarm" already exists, skipping
+CREATE EXTENSION
+Time: 0.274 ms
+DROP TABLE IF EXISTS locations;
+DROP TABLE
+Time: 111.224 ms
+CREATE UNLOGGED TABLE locations (
+    location_id  BIGINT NOT NULL,
+    name         TEXT,
+    geolocation  POINT        -- (x, y) = (longitude, latitude), per the tutorial
+);
+CREATE TABLE
+Time: 2.132 ms
+Schema created. Next: scripts/run-load.sh
+
+Saved: transcripts/01_schema-20261112-050826.txt
+[2026-11-12T05:08:27] ===== STAGE: loading 500000000 points =====
+Loading 500000000 rows: 4 workers x 12 batches of 10000000
+Started 05:08:27
+
+[w4] 05:08:38  rows   375000001..385000000      11s
+[w1] 05:08:38  rows           1..10000000       11s
+[w2] 05:08:38  rows   125000001..135000000      11s
+[w3] 05:08:38  rows   250000001..260000000      11s
+[w4] 05:08:48  rows   385000001..395000000      10s
+[w3] 05:08:49  rows   260000001..270000000      11s
+[w1] 05:08:49  rows    10000001..20000000       11s
+[w2] 05:08:49  rows   135000001..145000000      11s
+[w4] 05:09:00  rows   395000001..405000000      12s
+[w3] 05:09:00  rows   270000001..280000000      11s
+[w2] 05:09:00  rows   145000001..155000000      11s
+[w1] 05:09:00  rows    20000001..30000000       11s
+[w2] 05:09:12  rows   155000001..165000000      12s
+[w3] 05:09:12  rows   280000001..290000000      12s
+[w4] 05:09:12  rows   405000001..415000000      12s
+[w1] 05:09:12  rows    30000001..40000000       12s
+[w4] 05:09:23  rows   415000001..425000000      11s
+[w2] 05:09:23  rows   165000001..175000000      11s
+[w3] 05:09:23  rows   290000001..300000000      11s
+[w1] 05:09:23  rows    40000001..50000000       11s
+[w4] 05:09:34  rows   425000001..435000000      11s
+[w2] 05:09:34  rows   175000001..185000000      11s
+[w3] 05:09:34  rows   300000001..310000000      11s
+[w1] 05:09:35  rows    50000001..60000000       12s
+[w4] 05:09:45  rows   435000001..445000000      11s
+[w2] 05:09:45  rows   185000001..195000000      11s
+[w3] 05:09:45  rows   310000001..320000000      11s
+[w1] 05:09:46  rows    60000001..70000000       11s
+[w2] 05:09:57  rows   195000001..205000000      12s
+[w3] 05:09:57  rows   320000001..330000000      12s
+[w4] 05:09:57  rows   445000001..455000000      12s
+[w1] 05:09:57  rows    70000001..80000000       11s
+[w2] 05:10:07  rows   205000001..215000000      10s
+[w4] 05:10:08  rows   455000001..465000000      11s
+[w3] 05:10:08  rows   330000001..340000000      11s
+[w1] 05:10:08  rows    80000001..90000000       11s
+[w2] 05:10:18  rows   215000001..225000000      11s
+[w4] 05:10:19  rows   465000001..475000000      11s
+[w1] 05:10:20  rows    90000001..100000000      12s
+[w3] 05:10:20  rows   340000001..350000000      12s
+[w2] 05:10:29  rows   225000001..235000000      11s
+[w4] 05:10:30  rows   475000001..485000000      11s
+[w1] 05:10:31  rows   100000001..110000000      11s
+[w3] 05:10:31  rows   350000001..360000000      11s
+[w2] 05:10:40  rows   235000001..245000000      11s
+[w4] 05:10:41  rows   485000001..495000000      11s
+[w1] 05:10:42  rows   110000001..120000000      11s
+[w3] 05:10:42  rows   360000001..370000000      11s
+[w2] 05:10:46  rows   245000001..250000000       6s
+[w4] 05:10:46  rows   495000001..500000000       5s
+[w3] 05:10:47  rows   370000001..375000000       5s
+[w1] 05:10:48  rows   120000001..125000000       6s
+
+Finished 05:10:48 -- total 2 minutes
+Next: docker exec -it week3-postgres psql -U postgres -d geo -f /sql/03_finalize_load.sql
+
+To watch progress from another shell (count(*) on a growing 500M table is
+itself a minutes-long seq scan, so watch the file size instead):
+  watch -n30 "docker exec week3-postgres psql -U postgres -d geo -tAc \"SELECT pg_size_pretty(pg_relation_size('locations'))\""
+[2026-11-12T05:10:48] ===== STAGE: finalizing load (primary key, sequence, ANALYZE) =====
+Timing is on.
+SELECT count(*) AS total_rows FROM locations;
+ total_rows 
+------------
+  500000000
+(1 row)
+
+Time: 30352.622 ms (00:30.353)
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.184 ms
+ALTER TABLE locations ADD CONSTRAINT locations_pkey PRIMARY KEY (location_id);
+ALTER TABLE
+Time: 105626.210 ms (01:45.626)
+CREATE SEQUENCE IF NOT EXISTS locations_location_id_seq AS bigint OWNED BY locations.location_id;
+CREATE SEQUENCE
+Time: 4.208 ms
+ALTER TABLE locations ALTER COLUMN location_id SET DEFAULT nextval('locations_location_id_seq');
+ALTER TABLE
+Time: 4.179 ms
+SELECT setval('locations_location_id_seq', (SELECT max(location_id) FROM locations));
+  setval   
+-----------
+ 500000000
+(1 row)
+
+Time: 3.942 ms
+ANALYZE locations;
+ANALYZE
+Time: 1391.573 ms (00:01.392)
+
+--- Table shape (screenshot this: it is the 500M proof) ---
+                              Unlogged table "public.locations"
+   Column    |  Type  | Collation | Nullable |                    Default                     
+-------------+--------+-----------+----------+------------------------------------------------
+ location_id | bigint |           | not null | nextval('locations_location_id_seq'::regclass)
+ name        | text   |           |          | 
+ geolocation | point  |           |          | 
+Indexes:
+    "locations_pkey" PRIMARY KEY, btree (location_id)
+
+SELECT
+  pg_size_pretty(pg_relation_size('locations'))        AS table_only,
+  pg_size_pretty(pg_indexes_size('locations'))         AS indexes_only,
+  pg_size_pretty(pg_total_relation_size('locations'))  AS total_with_indexes;
+ table_only | indexes_only | total_with_indexes 
+------------+--------------+--------------------
+ 36 GB      | 10 GB        | 46 GB
+(1 row)
+
+Time: 1.247 ms
+SELECT reltuples::bigint AS planner_row_estimate,
+       relpages          AS heap_pages
+FROM pg_class WHERE relname = 'locations';
+ planner_row_estimate | heap_pages 
+----------------------+------------
+            499995584 |    4671907
+(1 row)
+
+Time: 0.178 ms
+SELECT * FROM locations ORDER BY location_id LIMIT 5;
+ location_id |    name    |               geolocation               
+-------------+------------+-----------------------------------------
+           1 | Location_1 | (175.62624334190883,41.219804650980365)
+           2 | Location_2 | (57.63539171874365,-83.34657146470545)
+           3 | Location_3 | (-129.0020954353671,12.106949416666978)
+           4 | Location_4 | (1.771937660604607,46.93256625139557)
+           5 | Location_5 | (16.851338402821767,61.98204090735868)
+(5 rows)
+
+Time: 1.038 ms
+
+Saved: transcripts/03_finalize_load-20261112-051048.txt
+[2026-11-12T05:13:05] ===== STAGE: baseline: BEFORE GiST (one shot only) =====
+== restarting postgres and dropping the OS page cache ==
+   ready
+Timing is on.
+======================================================================
+ BASELINE -- no spatial index
+======================================================================
+SELECT indexrelid::regclass AS existing_indexes
+FROM pg_index WHERE indrelid = 'locations'::regclass;
+ existing_indexes 
+------------------
+ locations_pkey
+(1 row)
+
+Time: 18.537 ms
+
+--- Q1: bounding box (point <@ box), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=21.358..21820.194 rows=969 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared read=4671907
+   I/O Timings: shared read=75359.200
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=91.220..21806.749 rows=194 loops=5)
+         Filter: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Rows Removed by Filter: 99999806
+         Buffers: shared read=4671907
+         I/O Timings: shared read=75359.200
+ Planning:
+   Buffers: shared hit=54 read=6
+   I/O Timings: shared read=2.026
+ Planning Time: 3.784 ms
+ Execution Time: 21820.542 ms
+(15 rows)
+
+Time: 21828.397 ms (00:21.828)
+--- Q1: bounding box, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=20.447..21576.170 rows=969 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=160 read=4671747
+   I/O Timings: shared read=73332.970
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=93.873..21565.167 rows=194 loops=5)
+         Filter: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Rows Removed by Filter: 99999806
+         Buffers: shared hit=160 read=4671747
+         I/O Timings: shared read=73332.970
+ Planning Time: 0.117 ms
+ Execution Time: 21576.524 ms
+(12 rows)
+
+Time: 21577.009 ms (00:21.577)
+
+--- Q2: radius / circle (point <@ circle), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=9281.388..22121.686 rows=7 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=594 read=4671313
+   I/O Timings: shared read=71093.759
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=8261.145..22110.905 rows=1 loops=5)
+         Filter: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Rows Removed by Filter: 99999999
+         Buffers: shared hit=594 read=4671313
+         I/O Timings: shared read=71093.759
+ Planning Time: 0.433 ms
+ Execution Time: 22121.710 ms
+(12 rows)
+
+Time: 22123.368 ms (00:22.123)
+--- Q2: radius / circle, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.00..6285392.80 rows=499996 width=42) (actual time=4011.028..21952.281 rows=7 loops=1)
+   Workers Planned: 4
+   Workers Launched: 4
+   Buffers: shared hit=665 read=4671242
+   I/O Timings: shared read=70365.727
+   ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=42) (actual time=7205.858..21942.285 rows=1 loops=5)
+         Filter: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Rows Removed by Filter: 99999999
+         Buffers: shared hit=665 read=4671242
+         I/O Timings: shared read=70365.727
+ Planning Time: 0.324 ms
+ Execution Time: 21952.302 ms
+(12 rows)
+
+Time: 21953.059 ms (00:21.953)
+
+--- Q3: K-NN nearest neighbour (ORDER BY <-> LIMIT 100), run 1 of 2 ---
+    Without an index this is a full scan plus a Top-N heapsort over 500M
+    rows. Expect minutes, not seconds. This is the most dramatic before/
+    after pair in the whole assignment.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=11012761.18..11012773.16 rows=100 width=50) (actual time=29893.343..29897.189 rows=100 loops=1)
+   Buffers: shared hit=1071 read=4670984
+   I/O Timings: shared read=41756.296
+   ->  Gather Merge  (cost=11012761.18..70879552.67 rows=499995584 width=50) (actual time=29893.341..29897.177 rows=100 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1071 read=4670984
+         I/O Timings: shared read=41756.296
+         ->  Sort  (cost=11011761.12..11324258.36 rows=124998896 width=50) (actual time=29885.918..29885.930 rows=84 loops=5)
+               Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+               Sort Method: top-N heapsort  Memory: 47kB
+               Buffers: shared hit=1071 read=4670984
+               I/O Timings: shared read=41756.296
+               Worker 0:  Sort Method: top-N heapsort  Memory: 43kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 46kB
+               Worker 2:  Sort Method: top-N heapsort  Memory: 48kB
+               Worker 3:  Sort Method: top-N heapsort  Memory: 47kB
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124998896 width=50) (actual time=0.344..19936.519 rows=100000000 loops=5)
+                     Buffers: shared hit=923 read=4670984
+                     I/O Timings: shared read=41756.296
+ Planning:
+   Buffers: shared hit=17 read=3
+   I/O Timings: shared read=0.507
+ Planning Time: 0.943 ms
+ Execution Time: 29897.233 ms
+(25 rows)
+
+Time: 29901.806 ms (00:29.902)
+--- Q3: K-NN, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=11012761.18..11012773.16 rows=100 width=50) (actual time=29885.686..29889.330 rows=100 loops=1)
+   Buffers: shared hit=1196 read=4670859 written=10
+   I/O Timings: shared read=42065.194 write=0.111
+   ->  Gather Merge  (cost=11012761.18..70879552.67 rows=499995584 width=50) (actual time=29885.685..29889.320 rows=100 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1196 read=4670859 written=10
+         I/O Timings: shared read=42065.194 write=0.111
+         ->  Sort  (cost=11011761.12..11324258.36 rows=124998896 width=50) (actual time=29881.415..29881.427 rows=85 loops=5)
+               Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+               Sort Method: top-N heapsort  Memory: 47kB
+               Buffers: shared hit=1196 read=4670859 written=10
+               I/O Timings: shared read=42065.194 write=0.111
+               Worker 0:  Sort Method: top-N heapsort  Memory: 43kB
+               Worker 1:  Sort Method: top-N heapsort  Memory: 46kB
+               Worker 2:  Sort Method: top-N heapsort  Memory: 48kB
+               Worker 3:  Sort Method: top-N heapsort  Memory: 47kB
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124998896 width=50) (actual time=0.251..19978.366 rows=100000000 loops=5)
+                     Buffers: shared hit=1048 read=4670859 written=10
+                     I/O Timings: shared read=42065.194 write=0.111
+ Planning Time: 0.303 ms
+ Execution Time: 29889.358 ms
+(22 rows)
+
+Time: 29890.051 ms (00:29.890)
+
+--- Q4: polygon containment (point <@ polygon), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate  (cost=6235706.12..6235706.13 rows=1 width=8) (actual time=21640.873..21644.207 rows=1 loops=1)
+   Buffers: shared hit=1224 read=4670683 written=1
+   I/O Timings: shared read=66848.919 write=0.023
+   ->  Gather  (cost=6235705.70..6235706.11 rows=4 width=8) (actual time=21640.764..21644.199 rows=5 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1224 read=4670683 written=1
+         I/O Timings: shared read=66848.919 write=0.023
+         ->  Partial Aggregate  (cost=6234705.70..6234705.71 rows=1 width=8) (actual time=21635.813..21635.814 rows=1 loops=5)
+               Buffers: shared hit=1224 read=4670683 written=1
+               I/O Timings: shared read=66848.919 write=0.023
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=0) (actual time=1865.912..21635.771 rows=15 loops=5)
+                     Filter: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+                     Rows Removed by Filter: 99999985
+                     Buffers: shared hit=1224 read=4670683 written=1
+                     I/O Timings: shared read=66848.919 write=0.023
+ Planning:
+   Buffers: shared hit=5 read=1
+   I/O Timings: shared read=0.262
+ Planning Time: 0.476 ms
+ Execution Time: 21644.234 ms
+(21 rows)
+
+Time: 21646.434 ms (00:21.646)
+--- Q4: polygon containment, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate  (cost=6235706.12..6235706.13 rows=1 width=8) (actual time=21385.944..21391.477 rows=1 loops=1)
+   Buffers: shared hit=1385 read=4670522
+   I/O Timings: shared read=66186.241
+   ->  Gather  (cost=6235705.70..6235706.11 rows=4 width=8) (actual time=21385.753..21391.467 rows=5 loops=1)
+         Workers Planned: 4
+         Workers Launched: 4
+         Buffers: shared hit=1385 read=4670522
+         I/O Timings: shared read=66186.241
+         ->  Partial Aggregate  (cost=6234705.70..6234705.71 rows=1 width=8) (actual time=21380.502..21380.503 rows=1 loops=5)
+               Buffers: shared hit=1385 read=4670522
+               I/O Timings: shared read=66186.241
+               ->  Parallel Seq Scan on locations  (cost=0.00..6234393.20 rows=124999 width=0) (actual time=1261.010..21380.456 rows=15 loops=5)
+                     Filter: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+                     Rows Removed by Filter: 99999985
+                     Buffers: shared hit=1385 read=4670522
+                     I/O Timings: shared read=66186.241
+ Planning Time: 0.201 ms
+ Execution Time: 21391.509 ms
+(18 rows)
+
+Time: 21392.121 ms (00:21.392)
+
+Saved: transcripts/04_baseline-20261112-051316.txt
+[2026-11-12T05:16:26] ===== STAGE: building GiST index =====
+Timing is on.
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.659 ms
+CREATE INDEX idx_locations_gist ON locations USING gist (geolocation);
+CREATE INDEX
+Time: 850698.098 ms (14:10.698)
+ANALYZE locations;
+ANALYZE
+Time: 1522.773 ms (00:01.523)
+
+--- Index built. Sizes: ---
+SELECT
+  indexrelid::regclass AS index_name,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_index
+WHERE indrelid = 'locations'::regclass
+ORDER BY pg_relation_size(indexrelid) DESC;
+     index_name     | index_size 
+--------------------+------------
+ idx_locations_gist | 31 GB
+ locations_pkey     | 10 GB
+(2 rows)
+
+Time: 1.382 ms
+
+Saved: transcripts/05_index-20261112-051626.txt
+[2026-11-12T05:30:39] ===== STAGE: AFTER GiST =====
+== restarting postgres and dropping the OS page cache ==
+   ready
+Timing is on.
+======================================================================
+ AFTER GiST
+======================================================================
+
+--- Q1: bounding box (point <@ box), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=6.873..63.594 rows=969 loops=1)
+   Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+   Heap Blocks: exact=969
+   Buffers: shared read=989
+   I/O Timings: shared read=25.601
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=6.117..6.117 rows=969 loops=1)
+         Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Buffers: shared read=20
+         I/O Timings: shared read=5.488
+ Planning:
+   Buffers: shared hit=102 read=6 dirtied=1
+   I/O Timings: shared read=2.072
+ Planning Time: 6.376 ms
+ Execution Time: 63.938 ms
+(14 rows)
+
+Time: 76.276 ms
+--- Q1: bounding box, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.425..1.149 rows=969 loops=1)
+   Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+   Heap Blocks: exact=969
+   Buffers: shared hit=989
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.266..0.266 rows=969 loops=1)
+         Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Buffers: shared hit=20
+ Planning Time: 0.063 ms
+ Execution Time: 1.263 ms
+(9 rows)
+
+Time: 1.526 ms
+
+--- Q2: radius / circle (point <@ circle), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.074..0.080 rows=7 loops=1)
+   Recheck Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+   Heap Blocks: exact=7
+   Buffers: shared hit=16
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.067..0.068 rows=7 loops=1)
+         Index Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Buffers: shared hit=9
+ Planning:
+   Buffers: shared hit=2 read=1
+   I/O Timings: shared read=0.252
+ Planning Time: 0.332 ms
+ Execution Time: 0.093 ms
+(12 rows)
+
+Time: 1.344 ms
+--- Q2: radius / circle, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM locations
+WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on locations  (cost=8367.96..521556.52 rows=500001 width=42) (actual time=0.071..0.076 rows=7 loops=1)
+   Recheck Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+   Heap Blocks: exact=7
+   Buffers: shared hit=16
+   ->  Bitmap Index Scan on idx_locations_gist  (cost=0.00..8242.96 rows=500001 width=0) (actual time=0.066..0.066 rows=7 loops=1)
+         Index Cond: (geolocation <@ '<(-73.9855,40.758),0.02>'::circle)
+         Buffers: shared hit=9
+ Planning Time: 0.046 ms
+ Execution Time: 0.086 ms
+(9 rows)
+
+Time: 0.295 ms
+
+--- Q3: K-NN nearest neighbour (ORDER BY <-> LIMIT 100), run 1 of 2 ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.55..97.00 rows=100 width=50) (actual time=0.076..0.292 rows=100 loops=1)
+   Buffers: shared hit=109
+   ->  Index Scan using idx_locations_gist on locations  (cost=0.55..482221671.75 rows=500001120 width=50) (actual time=0.075..0.277 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=109
+ Planning:
+   Buffers: shared hit=22 read=1
+   I/O Timings: shared read=0.265
+ Planning Time: 0.370 ms
+ Execution Time: 0.321 ms
+(10 rows)
+
+Time: 2.965 ms
+--- Q3: K-NN, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, name, geolocation
+FROM locations
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.55..97.00 rows=100 width=50) (actual time=0.077..0.264 rows=100 loops=1)
+   Buffers: shared hit=109
+   ->  Index Scan using idx_locations_gist on locations  (cost=0.55..482221671.75 rows=500001120 width=50) (actual time=0.076..0.250 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=109
+ Planning Time: 0.045 ms
+ Execution Time: 0.295 ms
+(7 rows)
+
+Time: 0.516 ms
+
+--- Q4: polygon containment (point <@ polygon), run 1 of 2 (cold) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=420200.47..420200.48 rows=1 width=8) (actual time=3.781..3.782 rows=1 loops=1)
+   Buffers: shared hit=70 read=14
+   I/O Timings: shared read=3.551
+   ->  Index Only Scan using idx_locations_gist on locations  (cost=0.55..418950.47 rows=500001 width=0) (actual time=0.617..3.769 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Heap Fetches: 60
+         Buffers: shared hit=70 read=14
+         I/O Timings: shared read=3.551
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.056 ms
+ Execution Time: 3.798 ms
+(12 rows)
+
+Time: 4.390 ms
+--- Q4: polygon containment, run 2 of 2 (warm) ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=420200.47..420200.48 rows=1 width=8) (actual time=0.141..0.143 rows=1 loops=1)
+   Buffers: shared hit=84
+   ->  Index Only Scan using idx_locations_gist on locations  (cost=0.55..418950.47 rows=500001 width=0) (actual time=0.050..0.133 rows=77 loops=1)
+         Index Cond: (geolocation <@ '((-74.02,40.7),(-73.94,40.7),(-73.94,40.8),(-74.02,40.8))'::polygon)
+         Heap Fetches: 60
+         Buffers: shared hit=84
+ Planning Time: 0.041 ms
+ Execution Time: 0.181 ms
+(8 rows)
+
+Time: 0.399 ms
+
+--- The actual answers, not just the plans ---
+SELECT count(*) AS rows_in_nyc_box
+FROM locations WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+ rows_in_nyc_box 
+-----------------
+             969
+(1 row)
+
+Time: 4.092 ms
+SELECT count(*) AS rows_in_circle
+FROM locations WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)';
+ rows_in_circle 
+----------------
+              7
+(1 row)
+
+Time: 0.261 ms
+SELECT count(*) AS rows_in_polygon
+FROM locations
+WHERE geolocation <@ polygon '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))';
+ rows_in_polygon 
+-----------------
+              77
+(1 row)
+
+Time: 0.333 ms
+
+Saved: transcripts/06_after_gist-20261112-053044.txt
+[2026-11-12T05:30:45] ===== STAGE: verifying index usage, sizes, correctness =====
+Timing is on.
+--- Is the index actually being used? ---
+SELECT indexrelid::regclass AS index_name,
+       idx_scan, idx_tup_read, idx_tup_fetch
+FROM pg_stat_user_indexes
+WHERE relid = 'locations'::regclass
+ORDER BY idx_scan DESC;
+     index_name     | idx_scan | idx_tup_read | idx_tup_fetch 
+--------------------+----------+--------------+---------------
+ idx_locations_gist |       11 |         3359 |          1126
+ locations_pkey     |        2 |            6 |             6
+(2 rows)
+
+Time: 15.052 ms
+
+--- Table vs. indexes size ---
+SELECT
+  pg_size_pretty(pg_relation_size('locations'))        AS table_only,
+  pg_size_pretty(pg_indexes_size('locations'))         AS indexes_only,
+  pg_size_pretty(pg_total_relation_size('locations'))  AS total_with_indexes;
+ table_only | indexes_only | total_with_indexes 
+------------+--------------+--------------------
+ 36 GB      | 42 GB        | 77 GB
+(1 row)
+
+Time: 3.447 ms
+
+--- Individual index size ---
+SELECT
+  indexrelid::regclass AS index_name,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS index_size
+FROM pg_index
+WHERE indrelid = 'locations'::regclass
+ORDER BY pg_relation_size(indexrelid) DESC;
+     index_name     | index_size 
+--------------------+------------
+ idx_locations_gist | 31 GB
+ locations_pkey     | 10 GB
+(2 rows)
+
+Time: 0.668 ms
+
+======================================================================
+ Are the answers even right? (a check the tutorial skips)
+======================================================================
+The points are uniform over the whole globe: 360 deg of longitude by 180
+of latitude = 64800 square degrees. So the expected number of hits for any
+shape is simply  N * area / 64800.  If the measured counts land near these
+numbers, the data really is uniform and the index really is returning
+everything it should -- a fast query that quietly returns too few rows is
+not a win. This also explains why the tutorial's circle and polygon queries
+return zero rows at 10M: the expected counts there are 0.2 and 1.2.
+
+WITH n AS (SELECT count(*)::numeric AS rows FROM locations),
+shapes(shape, area_deg2) AS (
+    VALUES ('box   (0.4 x 0.3 deg)',      0.4 * 0.3),
+           ('circle (r = 0.02 deg)',      pi() * 0.02 * 0.02),
+           ('polygon (0.08 x 0.10 deg)',  0.08 * 0.10)
+)
+SELECT shape,
+       round(area_deg2::numeric, 6)                      AS area_deg2,
+       round(n.rows * area_deg2::numeric / 64800, 1)     AS expected_rows
+FROM shapes, n;
+           shape           | area_deg2 | expected_rows 
+---------------------------+-----------+---------------
+ box   (0.4 x 0.3 deg)     |  0.120000 |         925.9
+ circle (r = 0.02 deg)     |  0.001257 |           9.7
+ polygon (0.08 x 0.10 deg) |  0.008000 |          61.7
+(3 rows)
+
+Time: 21462.545 ms (00:21.463)
+
+Measured counts (compare against expected_rows above):
+SELECT
+  (SELECT count(*) FROM locations
+     WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))')            AS actual_box,
+  (SELECT count(*) FROM locations
+     WHERE geolocation <@ circle '((-73.9855,40.7580), 0.02)')          AS actual_circle,
+  (SELECT count(*) FROM locations
+     WHERE geolocation <@ polygon
+       '((-74.02,40.70),(-73.94,40.70),(-73.94,40.80),(-74.02,40.80))') AS actual_polygon;
+ actual_box | actual_circle | actual_polygon 
+------------+---------------+----------------
+        969 |             7 |             77
+(1 row)
+
+Time: 1.452 ms
+
+--- Server settings that shaped these numbers (put in the report) ---
+SELECT name, setting, unit
+FROM pg_settings
+WHERE name IN ('shared_buffers','work_mem','maintenance_work_mem',
+               'effective_cache_size','max_parallel_workers_per_gather',
+               'random_page_cost','jit','track_io_timing')
+ORDER BY name;
+              name               | setting | unit 
+---------------------------------+---------+------
+ effective_cache_size            | 1310720 | 8kB
+ jit                             | off     | 
+ maintenance_work_mem            | 4194304 | kB
+ max_parallel_workers_per_gather | 4       | 
+ random_page_cost                | 1.1     | 
+ shared_buffers                  | 524288  | 8kB
+ track_io_timing                 | on      | 
+ work_mem                        | 131072  | kB
+(8 rows)
+
+Time: 1.892 ms
+SELECT version();
+                                                           version                                                           
+-----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 17.5 (Debian 17.5-1.pgdg110+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 10.2.1-6) 10.2.1 20210110, 64-bit
+(1 row)
+
+Time: 0.126 ms
+
+Saved: transcripts/07_verify-20261112-053045.txt
+[2026-11-12T05:31:06] ===== STAGE: geohash vs GiST comparison =====
+Timing is on.
+DROP TABLE IF EXISTS locations_gh;
+psql:/sql/08_geohash.sql:19: NOTICE:  table "locations_gh" does not exist, skipping
+DROP TABLE
+Time: 0.916 ms
+CREATE UNLOGGED TABLE locations_gh (
+    location_id  BIGINT,
+    name         TEXT,
+    geolocation  POINT,
+    gh           TEXT COLLATE "C"       -- precision 7 ~= 153 m x 153 m cells
+);
+CREATE TABLE
+Time: 22.353 ms
+INSERT INTO locations_gh (location_id, name, geolocation, gh)
+SELECT location_id,
+       name,
+       geolocation,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(geolocation[0], geolocation[1]), 4326), 7)
+FROM locations
+WHERE location_id <= 50000000;
+INSERT 0 50000000
+Time: 57091.457 ms (00:57.091)
+SELECT count(*) AS subset_rows FROM locations_gh;
+ subset_rows 
+-------------
+    50000000
+(1 row)
+
+Time: 977.081 ms
+SET maintenance_work_mem = '4GB';
+SET
+Time: 0.111 ms
+CREATE INDEX idx_gh_btree ON locations_gh USING btree (gh);
+CREATE INDEX
+Time: 10896.036 ms (00:10.896)
+CREATE INDEX idx_gh_gist  ON locations_gh USING gist  (geolocation);
+CREATE INDEX
+Time: 69838.430 ms (01:09.838)
+ANALYZE locations_gh;
+ANALYZE
+Time: 508.395 ms
+
+--- Index sizes: the B-tree over a 7-char string vs the GiST over points ---
+SELECT indexrelid::regclass AS index_name,
+       pg_size_pretty(pg_relation_size(indexrelid)) AS size
+FROM pg_index WHERE indrelid = 'locations_gh'::regclass
+ORDER BY pg_relation_size(indexrelid) DESC;
+  index_name  |  size   
+--------------+---------
+ idx_gh_gist  | 3181 MB
+ idx_gh_btree | 1071 MB
+(2 rows)
+
+Time: 3.952 ms
+
+======================================================================
+ 1. The NYC box in geohash terms
+======================================================================
+Geohashes of the box corners at each precision. They agree on the first
+few characters and then diverge -- that divergence point is the finest
+single prefix that can cover the whole box.
+SELECT p AS precision,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(-74.1, 40.6), 4326), p) AS sw_corner,
+       ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.7, 40.9), 4326), p) AS ne_corner
+FROM generate_series(1, 7) AS p;
+ precision | sw_corner | ne_corner 
+-----------+-----------+-----------
+         1 | d         | d
+         2 | dr        | dr
+         3 | dr5       | dr7
+         4 | dr5q      | dr78
+         5 | dr5qc     | dr78d
+         6 | dr5qcz    | dr78dv
+         7 | dr5qcz4   | dr78dvt
+(7 rows)
+
+Time: 1.403 ms
+WITH c AS (
+  SELECT ST_GeoHash(ST_SetSRID(ST_MakePoint(-74.1, 40.6), 4326), 7) AS a,
+         ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.7, 40.9), 4326), 7) AS b
+)
+SELECT coalesce(max(left(a, i)) FILTER (WHERE left(a, i) = left(b, i)), '') || '%' AS box_pat
+FROM c, generate_series(1, 7) AS i 
+Time: 2.190 ms
+
+Covering prefix pattern for the box:
+'dr%'
+
+======================================================================
+ 2. "How many points are in the NYC box?" -- geohash vs GiST
+======================================================================
+
+--- (a) Geohash B-tree prefix scan: candidates only ---
+    This is what a geohash lookup actually returns. It is a range scan
+    over one contiguous slice of the B-tree -- very cheap per row -- but
+    the rows are the cell, not the box.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh WHERE gh LIKE 'dr%';
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=44466.32..44466.33 rows=1 width=8) (actual time=198.667..198.668 rows=1 loops=1)
+   Buffers: shared hit=33053 read=13642 written=5300
+   I/O Timings: shared read=36.512 write=38.198
+   ->  Bitmap Heap Scan on locations_gh  (cost=550.63..44453.82 rows=5000 width=0) (actual time=16.206..195.395 rows=48768 loops=1)
+         Filter: (gh ~~ 'dr%'::text)
+         Heap Blocks: exact=46557
+         Buffers: shared hit=33053 read=13642 written=5300
+         I/O Timings: shared read=36.512 write=38.198
+         ->  Bitmap Index Scan on idx_gh_btree  (cost=0.00..549.38 rows=42121 width=0) (actual time=8.690..8.691 rows=48768 loops=1)
+               Index Cond: ((gh >= 'dr'::text) AND (gh < 'ds'::text))
+               Buffers: shared read=138
+               I/O Timings: shared read=3.289
+ Planning:
+   Buffers: shared hit=27 read=5
+   I/O Timings: shared read=1.239
+ Planning Time: 1.436 ms
+ Execution Time: 198.685 ms
+(17 rows)
+
+Time: 200.736 ms
+
+--- (b) Geohash prefix scan + the re-check the application must do ---
+    Real geohash systems filter the candidates afterwards. The gap between
+    (a) and (b) is wasted work: rows read from disk only to be discarded.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh
+WHERE gh LIKE 'dr%'
+  AND geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=1420.64..1420.65 rows=1 width=8) (actual time=4.948..4.949 rows=1 loops=1)
+   Buffers: shared hit=246 read=8
+   I/O Timings: shared read=0.028
+   ->  Bitmap Heap Scan on locations_gh  (cost=1373.84..1420.63 rows=5 width=0) (actual time=4.796..4.941 rows=108 loops=1)
+         Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Filter: (gh ~~ 'dr%'::text)
+         Heap Blocks: exact=108
+         Buffers: shared hit=246 read=8
+         I/O Timings: shared read=0.028
+         ->  BitmapAnd  (cost=1373.84..1373.84 rows=42 width=0) (actual time=4.704..4.704 rows=0 loops=1)
+               Buffers: shared hit=138 read=8
+               I/O Timings: shared read=0.028
+               ->  Bitmap Index Scan on idx_gh_btree  (cost=0.00..549.38 rows=42121 width=0) (actual time=3.563..3.563 rows=48768 loops=1)
+                     Index Cond: ((gh >= 'dr'::text) AND (gh < 'ds'::text))
+                     Buffers: shared hit=138
+               ->  Bitmap Index Scan on idx_gh_gist  (cost=0.00..824.21 rows=49999 width=0) (actual time=0.066..0.066 rows=108 loops=1)
+                     Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+                     Buffers: shared read=8
+                     I/O Timings: shared read=0.028
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.107 ms
+ Execution Time: 4.971 ms
+(23 rows)
+
+Time: 5.729 ms
+
+--- (c) GiST: exact, in one operator ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*) FROM locations_gh
+WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))';
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=52586.38..52586.39 rows=1 width=8) (actual time=0.133..0.134 rows=1 loops=1)
+   Buffers: shared hit=116
+   ->  Bitmap Heap Scan on locations_gh  (cost=836.71..52461.38 rows=49999 width=0) (actual time=0.036..0.128 rows=108 loops=1)
+         Recheck Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+         Heap Blocks: exact=108
+         Buffers: shared hit=116
+         ->  Bitmap Index Scan on idx_gh_gist  (cost=0.00..824.21 rows=49999 width=0) (actual time=0.026..0.026 rows=108 loops=1)
+               Index Cond: (geolocation <@ '(-73.7,40.9),(-74.1,40.6)'::box)
+               Buffers: shared hit=8
+ Planning Time: 0.030 ms
+ Execution Time: 0.148 ms
+(11 rows)
+
+Time: 0.390 ms
+
+--- Precision and recall of the geohash approach ---
+SELECT
+  (SELECT count(*) FROM locations_gh WHERE gh LIKE 'dr%')            AS candidates_returned,
+  (SELECT count(*) FROM locations_gh
+     WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))')              AS true_answer,
+  (SELECT count(*) FROM locations_gh
+     WHERE geolocation <@ box '((-74.1,40.6),(-73.7,40.9))'
+       AND gh NOT LIKE 'dr%')                                       AS missed_by_geohash;
+ candidates_returned | true_answer | missed_by_geohash 
+---------------------+-------------+-------------------
+               48768 |         108 |                 0
+(1 row)
+
+Time: 56.742 ms
+
+======================================================================
+ 3. Two points 100 m apart can have nothing in common
+======================================================================
+A geohash cell is a grid square, so proximity in space does not imply a
+shared prefix -- a point just west of a cell edge and one just east of it
+may diverge at the very first character. 1000 random pairs, each exactly
+one pair 100 m apart, sampled over the NYC area:
+WITH a AS (
+  SELECT ST_SetSRID(ST_MakePoint(-74.0 + random()*0.5, 40.6 + random()*0.4), 4326) AS p
+  FROM generate_series(1, 1000)
+), pairs AS (
+  SELECT p,
+         ST_SetSRID(ST_MakePoint(ST_X(p) + 0.0012, ST_Y(p)), 4326) AS q  -- ~100 m east
+  FROM a
+), gh AS (
+  -- The geography cast is what makes "100 m" a real number. In the built-in
+  -- point type 0.0012 degrees of longitude is not a distance at all; it is
+  -- ~101 m at New York's latitude and ~133 m at the equator.
+  SELECT ST_Distance(p::geography, q::geography) AS metres,
+         ST_GeoHash(p, 7) AS gp, ST_GeoHash(q, 7) AS gq
+  FROM pairs
+)
+SELECT count(*)                                                   AS pairs_tested,
+       round(avg(metres)::numeric, 1)                             AS avg_metres_apart,
+       count(*) FILTER (WHERE gp <> gq)                           AS in_different_cells,
+       count(*) FILTER (WHERE left(gp,5) <> left(gq,5))           AS differ_by_char_5,
+       count(*) FILTER (WHERE left(gp,3) <> left(gq,3))           AS differ_by_char_3
+FROM gh;
+ pairs_tested | avg_metres_apart | in_different_cells | differ_by_char_5 | differ_by_char_3 
+--------------+------------------+--------------------+------------------+------------------
+         1000 |            101.3 |                877 |               32 |                0
+(1 row)
+
+Time: 55.233 ms
+
+This is why a correct geohash "nearby" search must query the cell PLUS its
+eight neighbours and then re-check distances -- nine range scans and a
+post-filter to answer what GiST answers with one operator. GiST's bounding
+boxes overlap and adapt to the data, so it has no equivalent of an edge.
+
+======================================================================
+ 4. "100 nearest points to Times Square"
+======================================================================
+
+--- (a) GiST: one ordered index scan, stops after 100 rows ---
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, geolocation
+FROM locations_gh
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                   QUERY PLAN                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..4.45 rows=100 width=32) (actual time=0.050..0.238 rows=100 loops=1)
+   Buffers: shared hit=108
+   ->  Index Scan using idx_gh_gist on locations_gh  (cost=0.42..2013802.16 rows=49998952 width=32) (actual time=0.049..0.231 rows=100 loops=1)
+         Order By: (geolocation <-> '(-73.9855,40.758)'::point)
+         Buffers: shared hit=108
+ Planning:
+   Buffers: shared hit=27 read=1
+   I/O Timings: shared read=0.003
+ Planning Time: 0.092 ms
+ Execution Time: 0.255 ms
+(10 rows)
+
+Time: 1.843 ms
+SELECT ST_GeoHash(ST_SetSRID(ST_MakePoint(-73.9855, 40.7580), 4326), 5) || '%' AS knn_pat 
+Time: 0.152 ms
+
+Times Square precision-5 cell pattern:
+'dr5ru%'
+
+--- (b) Geohash: scan a cell, then sort what you found ---
+    The sort is a real Sort node over every row in the cell. And the
+    result is only correct if the 100th nearest point is inside this cell;
+    otherwise the query silently returns neighbours that are not the
+    nearest. There is no "stop when you have K" -- geohash has no ordering
+    by distance, only by cell.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT location_id, geolocation
+FROM locations_gh
+WHERE gh LIKE 'dr5ru%'
+ORDER BY geolocation <-> POINT(-73.9855, 40.7580)
+LIMIT 100;
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=206.38..206.63 rows=100 width=32) (actual time=0.018..0.019 rows=2 loops=1)
+   Buffers: shared hit=6
+   ->  Sort  (cost=206.38..218.88 rows=5000 width=32) (actual time=0.018..0.018 rows=2 loops=1)
+         Sort Key: ((geolocation <-> '(-73.9855,40.758)'::point))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=6
+         ->  Index Scan using idx_gh_btree on locations_gh  (cost=0.56..15.29 rows=5000 width=32) (actual time=0.013..0.015 rows=2 loops=1)
+               Index Cond: ((gh >= 'dr5ru'::text) AND (gh < 'dr5rv'::text))
+               Filter: (gh ~~ 'dr5ru%'::text)
+               Buffers: shared hit=6
+ Planning Time: 0.074 ms
+ Execution Time: 0.027 ms
+(12 rows)
+
+Time: 0.253 ms
+
+--- How many rows are even in that cell? ---
+    If this is below 100, the query above is wrong and the application
+    has to widen the prefix and try again -- the retry loop that every
+    geohash-based nearby-search implementation ends up carrying.
+SELECT count(*) AS rows_in_precision5_cell
+FROM locations_gh WHERE gh LIKE 'dr5ru%';
+ rows_in_precision5_cell 
+-------------------------
+                       2
+(1 row)
+
+Time: 0.247 ms
+
+Saved: transcripts/08_geohash-20261112-053106.txt
+[2026-11-12T05:33:26] ===== STAGE: DONE =====
+[2026-11-12T05:33:26] total elapsed: 25 minutes
+[2026-11-12T05:33:26] transcripts:
+total 136
+drwx------ 2 root root  4096 Nov 12 05:31 .
+drwx------ 6 root root  4096 Nov 12 05:08 ..
+-rw------- 1 root root  3513 Nov 12 05:07 00-system-info.txt
+-rw-r--r-- 1 root root   628 Nov 12 05:08 01_schema-20261112-050824.txt
+-rw-r--r-- 1 root root   634 Nov 12 05:08 01_schema-20261112-050826.txt
+-rw-r--r-- 1 root root  2538 Nov 12 05:13 03_finalize_load-20261112-051048.txt
+-rw-r--r-- 1 root root 12663 Nov 12 05:16 04_baseline-20261112-051316.txt
+-rw-r--r-- 1 root root   621 Nov 12 05:30 05_index-20261112-051626.txt
+-rw-r--r-- 1 root root  9105 Nov 12 05:30 06_after_gist-20261112-053044.txt
+-rw-r--r-- 1 root root  4657 Nov 12 05:31 07_verify-20261112-053045.txt
+-rw-r--r-- 1 root root 13775 Nov 12 05:33 08_geohash-20261112-053106.txt
+-rw-r--r-- 1 root root 50096 Nov 12 05:33 bootstrap.log
+/dev/sda1       301G   89G  200G  31% /

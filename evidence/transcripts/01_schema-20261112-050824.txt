@@ -1,0 +1,20 @@
+Timing is on.
+CREATE EXTENSION IF NOT EXISTS postgis;
+psql:/sql/01_schema.sql:31: NOTICE:  extension "postgis" already exists, skipping
+CREATE EXTENSION
+Time: 0.691 ms
+CREATE EXTENSION IF NOT EXISTS pg_prewarm;
+CREATE EXTENSION
+Time: 10.542 ms
+DROP TABLE IF EXISTS locations;
+psql:/sql/01_schema.sql:34: NOTICE:  table "locations" does not exist, skipping
+DROP TABLE
+Time: 0.378 ms
+CREATE UNLOGGED TABLE locations (
+    location_id  BIGINT NOT NULL,
+    name         TEXT,
+    geolocation  POINT        -- (x, y) = (longitude, latitude), per the tutorial
+);
+CREATE TABLE
+Time: 9.635 ms
+Schema created. Next: scripts/run-load.sh
